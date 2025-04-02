@@ -35,7 +35,8 @@ with st.form("produto_form"):
         })
     elif clear:
         st.session_state.produtos = []
-        st.experimental_rerun()
+        st.rerun()
+
 
 if not st.session_state.produtos:
     st.info("Cadastre pelo menos um produto para iniciar a simulação.")
