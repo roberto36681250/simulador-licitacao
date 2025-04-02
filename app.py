@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import json
 from io import BytesIO
-import plotly.express as px
 
 st.set_page_config(page_title="Simulador de Licitação", layout="wide")
 st.title("🧮 Simulador de Preços para Licitação Pública")
@@ -19,10 +18,10 @@ st.markdown("## Cadastro de Produto")
 with st.form("produto_form"):
     cols = st.columns(7)
     nome = cols[0].text_input("Produto", "Fralda P")
-    custo = cols[1].number_input("Custo (R$)", min_value=0.0, value=1.30, step=0.01)
-    frete = cols[2].number_input("Frete (R$)", min_value=0.0, value=0.10, step=0.01)
-    imposto = cols[3].number_input("Imposto (%)", min_value=0.0, value=10.0, step=0.1) / 100
-    margem = cols[4].number_input("Lucro real (%)", min_value=0.0, value=15.0, step=0.1) / 100
+    custo = cols[1].number_input("Custo (R$)", min_value=0.0, value=1.30, step=0.01, key="custo")
+    frete = cols[2].number_input("Frete (R$)", min_value=0.0, value=0.10, step=0.01, key="frete")
+    imposto = cols[3].number_input("Imposto (%)", min_value=0.0, value=10.0, step=0.1, key="imposto") / 100
+    margem = cols[4].number_input("Lucro real (%)", min_value=0.0, value=15.0, step=0.1, key="margem") / 100
     add = cols[5].form_submit_button("Adicionar Produto")
     clear = cols[6].form_submit_button("Limpar Todos")
 
@@ -36,6 +35,7 @@ with st.form("produto_form"):
         })
     elif clear:
         st.session_state.produtos = []
+        st.experimental_rerun()
 
 if not st.session_state.produtos:
     st.info("Cadastre pelo menos um produto para iniciar a simulação.")
@@ -79,10 +79,17 @@ df = pd.DataFrame(resultados)
 if (df["Lucro R$"] < 0).any():
     st.warning("⚠️ Atenção: existem cenários com prejuízo (lucro negativo). Avalie os descontos com cuidado.")
 
-# Gráfico de lucro por produto
-st.markdown("### 📈 Gráfico de Lucro por Produto")
-fig = px.line(df, x="Desconto", y="Lucro R$", color="Produto", markers=True)
-st.plotly_chart(fig, use_container_width=True)
+# Destacar lucro zero como ponto de corte
+ultimo_lucro = df[df["Lucro R$"] >= 0].tail(1).index.tolist()
+primeiro_preju = df[df["Lucro R$"] < 0].head(1).index.tolist()
+
+def destacar_linha(row):
+    if row.name in ultimo_lucro:
+        return ["background-color: #d4edda"] * len(row)
+    elif row.name in primeiro_preju:
+        return ["background-color: #f8d7da"] * len(row)
+    else:
+        return [""] * len(row)
 
 # Formatar DataFrame
 df_formatado = df.copy()
@@ -91,7 +98,7 @@ df_formatado["Imposto"] = df_formatado["Imposto"].map(lambda x: f"R$ {x:.4f}")
 df_formatado["Custo Total"] = df_formatado["Custo Total"].map(lambda x: f"R$ {x:.4f}")
 df_formatado["Lucro R$"] = df_formatado["Lucro R$"].map(lambda x: f"R$ {x:.4f}")
 df_formatado["Lucro %"] = df_formatado["Lucro %"].map(lambda x: f"{x:.2%}")
-st.dataframe(df_formatado, use_container_width=True)
+st.dataframe(df_formatado.style.apply(destacar_linha, axis=1), use_container_width=True)
 
 # MELHOR POR PRODUTO
 st.markdown("---")
@@ -107,7 +114,7 @@ st.markdown("---")
 st.subheader("📥 Exportar Simulação")
 def gerar_excel():
     buffer = BytesIO()
-    with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         df.to_excel(writer, sheet_name="Simulacoes", index=False)
         melhores.to_excel(writer, sheet_name="Resumo", index=False)
     return buffer.getvalue()
@@ -128,4 +135,3 @@ with col2:
     if file:
         st.session_state.produtos = json.load(file)
         st.success("Produtos carregados com sucesso. Atualize a página para ver os dados.")
-
