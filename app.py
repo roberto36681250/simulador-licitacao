@@ -10,6 +10,15 @@ st.title("🧮 Simulador de Preços para Licitação Pública")
 if "produtos" not in st.session_state:
     st.session_state.produtos = []
 
+if "form_inputs" not in st.session_state:
+    st.session_state.form_inputs = {
+        "nome": "Fralda P",
+        "custo": 1.30,
+        "frete": 0.10,
+        "imposto": 10.0,
+        "margem": 15.0
+    }
+
 st.sidebar.header("Parâmetros Globais")
 desconto_max = st.sidebar.number_input("Desconto máximo (R$)", value=0.5, step=0.01, format="%.2f")
 intervalo = st.sidebar.number_input("Intervalo (R$)", value=0.01, step=0.01, format="%.2f")
@@ -17,11 +26,11 @@ intervalo = st.sidebar.number_input("Intervalo (R$)", value=0.01, step=0.01, for
 st.markdown("## Cadastro de Produto")
 with st.form("produto_form"):
     cols = st.columns(7)
-    nome = cols[0].text_input("Produto", "Fralda P")
-    custo = cols[1].number_input("Custo (R$)", min_value=0.0, value=1.30, step=0.01, key="custo")
-    frete = cols[2].number_input("Frete (R$)", min_value=0.0, value=0.10, step=0.01, key="frete")
-    imposto = cols[3].number_input("Imposto (%)", min_value=0.0, value=10.0, step=0.1, key="imposto") / 100
-    margem = cols[4].number_input("Lucro real (%)", min_value=0.0, value=15.0, step=0.1, key="margem") / 100
+    nome = cols[0].text_input("Produto", st.session_state.form_inputs["nome"], key="nome")
+    custo = cols[1].number_input("Custo (R$)", min_value=0.0, value=st.session_state.form_inputs["custo"], step=0.01, key="custo")
+    frete = cols[2].number_input("Frete (R$)", min_value=0.0, value=st.session_state.form_inputs["frete"], step=0.01, key="frete")
+    imposto = cols[3].number_input("Imposto (%)", min_value=0.0, value=st.session_state.form_inputs["imposto"], step=0.1, key="imposto") / 100
+    margem = cols[4].number_input("Lucro real (%)", min_value=0.0, value=st.session_state.form_inputs["margem"], step=0.1, key="margem") / 100
     add = cols[5].form_submit_button("Adicionar Produto")
     clear = cols[6].form_submit_button("Limpar Todos")
 
@@ -35,8 +44,17 @@ with st.form("produto_form"):
         })
     elif clear:
         st.session_state.produtos = []
+        st.session_state.form_inputs = {
+            "nome": "Fralda P",
+            "custo": 1.30,
+            "frete": 0.10,
+            "imposto": 10.0,
+            "margem": 15.0
+        }
+        for key in ["nome", "custo", "frete", "imposto", "margem"]:
+            if key in st.session_state:
+                del st.session_state[key]
         st.rerun()
-
 
 if not st.session_state.produtos:
     st.info("Cadastre pelo menos um produto para iniciar a simulação.")
@@ -130,6 +148,12 @@ col1, col2 = st.columns(2)
 with col1:
     json_data = json.dumps(st.session_state.produtos)
     st.download_button("💾 Baixar Configuração (.json)", json_data, file_name="simulacao.json")
+
+with col2:
+    file = st.file_uploader("📂 Carregar arquivo .json", type="json")
+    if file:
+        st.session_state.produtos = json.load(file)
+        st.success("Produtos carregados com sucesso. Atualize a página para ver os dados.")
 
 with col2:
     file = st.file_uploader("📂 Carregar arquivo .json", type="json")
